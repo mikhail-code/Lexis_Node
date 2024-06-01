@@ -49,7 +49,7 @@ export default function createUserRoutes(
     "/login",
     async (req: express.Request<LoginRequest>, res: express.Response) => {
       const { login, password } = req.body;
-
+      console.log("/login " + req.body + " " + login + " " + password);
       try {
         // Find user by login credential (username or email)
         const user = await User.getUserByLogin(login);

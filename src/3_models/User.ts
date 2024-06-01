@@ -43,16 +43,17 @@ export class User {
     this.config = config;
   }
   async hashPassword(password: string): Promise<string> {
-    const salt = await bcrypt.genSalt(10); 
+    const salt = await bcrypt.genSalt(10);
     return await bcrypt.hash(password, salt);
   }
 
   async comparePassword(password: string): Promise<boolean> {
     // Compare the provided password with the hashed password stored in the database
-    const isPasswordMatch = await bcrypt.compare(password, this.password); 
+    const isPasswordMatch = await bcrypt.compare(password, this.password);
     return isPasswordMatch;
   }
-  static async createUser(user: User): Promise<User> { //creating and storing user data in the database
+  static async createUser(user: User): Promise<User> {
+    //creating and storing user data in the database
     const client: PoolClient = await pool.connect();
     const hashedPassword = await user.hashPassword(user.password);
     try {
@@ -86,14 +87,19 @@ export class User {
     }
   }
 
-  static async getUserByLogin(login: string): Promise<User | null> {
+  static async getUserByLogin(login: string): Promise<User | null> { //or EMail
     const client: PoolClient = await pool.connect();
     try {
-      const result = await client.query("SELECT * FROM users WHERE login = $1", [
+      let result = await client.query("SELECT * FROM users WHERE login = $1", [
         login,
       ]);
       if (result.rows.length === 0) {
-        return null;
+        result = await client.query("SELECT * FROM users WHERE email = $1", [
+          login,
+        ]);
+        if (result.rows.length === 0) {
+          return null;
+        }
       }
       // Destructuring to create User object
       return new User(

@@ -396,3 +396,26 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+1.0 gitignore
+
+React:
+
+# General
+.DS_Store
+Thumbs.db
+*.log
+.tmp
+
+# Node.js
+node_modules/
+
+# Express.js
+.env  # Or your custom environment variable filename
+
+# React (adjust patterns based on your build tool)
+build/
+dist/
+
+# Editor Config
+.vscode/
+.idea/

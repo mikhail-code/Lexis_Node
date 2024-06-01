@@ -41,6 +41,7 @@ function createUserRoutes(useMockService) {
     }));
     router.post("/login", (req, res) => __awaiter(this, void 0, void 0, function* () {
         const { login, password } = req.body;
+        console.log("/login " + req.body + " " + login + " " + password);
         try {
             // Find user by login credential (username or email)
             const user = yield User_1.User.getUserByLogin(login);

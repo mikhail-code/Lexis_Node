@@ -62,16 +62,13 @@ class User {
     comparePassword(password) {
         return __awaiter(this, void 0, void 0, function* () {
             // Compare the provided password with the hashed password stored in the database
-            console.log("password " + password);
-            console.log("this.password " + this.password);
-            console.log("bcrypt.compare(password, this.password) " + bcrypt.compare(password, this.password));
             const isPasswordMatch = yield bcrypt.compare(password, this.password);
-            console.log("bcrypt.compare resolved to:", isPasswordMatch);
             return isPasswordMatch;
         });
     }
     static createUser(user) {
         return __awaiter(this, void 0, void 0, function* () {
+            //creating and storing user data in the database
             const client = yield pool.connect();
             const hashedPassword = yield user.hashPassword(user.password);
             try {
@@ -97,11 +94,16 @@ class User {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield pool.connect();
             try {
-                const result = yield client.query("SELECT * FROM users WHERE login = $1", [
+                let result = yield client.query("SELECT * FROM users WHERE login = $1", [
                     login,
                 ]);
                 if (result.rows.length === 0) {
-                    return null;
+                    result = yield client.query("SELECT * FROM users WHERE email = $1", [
+                        login,
+                    ]);
+                    if (result.rows.length === 0) {
+                        return null;
+                    }
                 }
                 // Destructuring to create User object
                 return new User(result.rows[0].id, result.rows[0].name, result.rows[0].surname, result.rows[0].login, result.rows[0].password, result.rows[0].email, result.rows[0].country, result.rows[0].birth_date, result.rows[0].config);

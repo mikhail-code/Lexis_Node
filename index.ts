@@ -1,5 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 
 import usersRoutes from './src/0_routes/users';
 
@@ -11,6 +12,7 @@ require('dotenv').config();
 const useMockService = process.env.TO_MOCK === 'true'; // We need this to excape problems with .env values are string by default
 
 app.use(bodyParser.json()); // Add bodyParser middleware
+app.use(cors()); // Add CORS middleware
 
 // ... mount routes
 app.use('/users', usersRoutes(useMockService));
