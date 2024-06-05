@@ -3,7 +3,7 @@ import { User } from "../3_models/User";
 import { generateAuthToken } from "../3_models/auth";
 
 interface LoginRequest {
-  login: string;
+  login: string; //or email
   password: string;
 }
 
@@ -25,16 +25,14 @@ export default function createUserRoutes(
   router.get("/", async (req: express.Request, res: express.Response) => {
     if (useMockService) {
       console.log("Using mock data service (GET /users)");
-      // Implement mock data logic to return 50 mock users (replace with actual implementation)
-      res.json([{ message: "Mock user 1" }, { message: "Mock user 2" }]); // Example mock response
+      
+      res.json([{ message: "Mock user 1" }, { message: "Mock user 2" }]); 
     } else {
       console.log("Using real service for GET /users");
       try {
-        // Retrieve 50 users from the database (adjust limit as needed)
-        const users = await User.getUsers(50); // Assuming getUsers is implemented in User model
-
+        const users = await User.getUsers(50);
         if (!users) {
-          return res.status(404).json({ message: "No users found" }); // Handle no users scenario
+          return res.status(404).json({ message: "No users found" }); 
         }
 
         res.json(users);
@@ -50,30 +48,42 @@ export default function createUserRoutes(
     async (req: express.Request<LoginRequest>, res: express.Response) => {
       const { login, password } = req.body;
       console.log("/login " + req.body + " " + login + " " + password);
+  
       try {
-        // Find user by login credential (username or email)
         const user = await User.getUserByLogin(login);
-
+  
         if (!user) {
           return res.status(401).json({ message: "Invalid login credentials" });
         }
-
-        // Compare hashed passwords
+  
+        // Comparing hashed passwords
         const isPasswordValid = await user.comparePassword(password);
-
+  
         if (!isPasswordValid) {
-          return res.status(401).json({ message: "Invalid password" });
+          return res.status(401).json({ message: "Invalid login credentials" });
         }
-
+  
         // Generate and return auth token on successful login
         const token = generateAuthToken(user.id);
-        res.json({ message: "Login successful", token });
+  
+        // Create a user object with all attributes
+        const userToReturn = {
+          userLogin: user.login,
+          name: user.name,
+          surname: user.surname,
+          email: user.email,
+          country: user.country,
+          configuration: user.config,
+        };
+  
+        res.json({ message: "Login successful", token, user: userToReturn });
       } catch (error) {
         console.error("Error during login:", error);
         res.status(500).json({ message: "Error logging in" });
       }
     }
   );
+  
 
   router.post(
     "/register",

@@ -20,16 +20,14 @@ function createUserRoutes(useMockService) {
     router.get("/", (req, res) => __awaiter(this, void 0, void 0, function* () {
         if (useMockService) {
             console.log("Using mock data service (GET /users)");
-            // Implement mock data logic to return 50 mock users (replace with actual implementation)
-            res.json([{ message: "Mock user 1" }, { message: "Mock user 2" }]); // Example mock response
+            res.json([{ message: "Mock user 1" }, { message: "Mock user 2" }]);
         }
         else {
             console.log("Using real service for GET /users");
             try {
-                // Retrieve 50 users from the database (adjust limit as needed)
-                const users = yield User_1.User.getUsers(50); // Assuming getUsers is implemented in User model
+                const users = yield User_1.User.getUsers(50);
                 if (!users) {
-                    return res.status(404).json({ message: "No users found" }); // Handle no users scenario
+                    return res.status(404).json({ message: "No users found" });
                 }
                 res.json(users);
             }
@@ -43,19 +41,27 @@ function createUserRoutes(useMockService) {
         const { login, password } = req.body;
         console.log("/login " + req.body + " " + login + " " + password);
         try {
-            // Find user by login credential (username or email)
             const user = yield User_1.User.getUserByLogin(login);
             if (!user) {
                 return res.status(401).json({ message: "Invalid login credentials" });
             }
-            // Compare hashed passwords
+            // Comparing hashed passwords
             const isPasswordValid = yield user.comparePassword(password);
             if (!isPasswordValid) {
-                return res.status(401).json({ message: "Invalid password" });
+                return res.status(401).json({ message: "Invalid login credentials" });
             }
             // Generate and return auth token on successful login
             const token = (0, auth_1.generateAuthToken)(user.id);
-            res.json({ message: "Login successful", token });
+            // Create a user object with all attributes
+            const userToReturn = {
+                userLogin: user.login,
+                name: user.name,
+                surname: user.surname,
+                email: user.email,
+                country: user.country,
+                configuration: user.config,
+            };
+            res.json({ message: "Login successful", token, user: userToReturn });
         }
         catch (error) {
             console.error("Error during login:", error);
