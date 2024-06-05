@@ -1,4 +1,4 @@
-## Lexis_Node - Backend systems for Lexis
+## Lexis_Node - Backend systems for Lexis App
 Stack:
 - Node/Express.js
 - Typescript
@@ -33,7 +33,7 @@ Community API:
 **MVP**
 
 
-Below additional functionality out of the MVP scope:
+Below additional functionality outside of the MVP scope:
 - Training API
 - Achievements API
 - Teacher API
