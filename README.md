@@ -31,6 +31,8 @@ Community API:
 - subscribe to dictionary ⏳
 - copy dictionary ⏳
 **MVP**
+
+
 Below additional functionality out of the MVP scope:
 - Training API
 - Achievements API
