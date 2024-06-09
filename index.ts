@@ -3,6 +3,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 
 import usersRoutes from './src/0_routes/users';
+import dictionaryRoutes from "./src/0_routes/dictionaries";
 
 const app: express.Application = express(); // Type annotation for Express app
 const port = 3000;
@@ -16,6 +17,7 @@ app.use(cors()); // Add CORS middleware
 
 // ... mount routes
 app.use('/users', usersRoutes(useMockService));
+app.use("/dictionaries", dictionaryRoutes);
 
 // Route for handling GET requests to the root path (/)
 app.get('/', (req: express.Request, res: express.Response) => {
