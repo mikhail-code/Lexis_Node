@@ -1,5 +1,5 @@
 import express from "express";
-import { User } from "../3_models/User";
+import { User } from "../3_models/user";
 import { generateAuthToken } from "../3_models/auth";
 
 interface LoginRequest {
@@ -133,3 +133,22 @@ export default function createUserRoutes(
 
   return router;
 }
+
+
+
+
+
+
+// import { Router } from 'express';
+// import { isAuthenticated } from '../4_middlewares/auth';
+// import * as usersController from '../1_controllers/users';
+
+// const router = Router();
+
+// router.get('/list', isAuthenticated, usersController.getUsersList);
+
+// router.get('/me', isAuthenticated, usersController.getAuthenticatedUser);
+
+// router.get('/:id', isAuthenticated, usersController.getUserById);
+
+// export default router;

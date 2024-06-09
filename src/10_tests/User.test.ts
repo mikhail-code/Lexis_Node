@@ -1,4 +1,4 @@
-import { User } from "../3_models/User";
+import { User } from "../3_models/user";
 import * as bcrypt from "bcryptjs";
 
 describe("User class password hashing and comparison", () => {

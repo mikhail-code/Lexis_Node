@@ -28,3 +28,18 @@ app.listen(port, () => {
 });
 
 module.exports = app;
+
+import path from 'path';
+import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
+
+dotenv.config();
+
+/**
+ * New Code
+ */
+// import authRoutes from './src/0_routes/auth';
+// import usersRoutes from './src/0_routes/users';
+
+// app.use('/auth', authRoutes);
+// app.use('/users', usersRoutes);
