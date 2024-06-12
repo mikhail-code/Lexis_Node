@@ -1,8 +1,8 @@
 const Sequelize = require('sequelize');
-const isProduction = process.env.NODE_ENV === 'production'; // Assuming 'production' for deployment
+const isProduction = process.env.NODE_ENV === 'production'; 
 require('dotenv').config();
 
-const sequelizeConfig = {
+ const config = {
   dialect: 'postgres',
   host: process.env.DB_HOST,
   username: process.env.DB_USER,
@@ -16,7 +16,7 @@ const sequelizeConfig = {
 };
 
 // Initialize Sequelize instance (without force sync)
-const sequelize = new Sequelize(sequelizeConfig);
+const sequelize = new Sequelize(config);
 
 // **Optional:** Export Sequelize instance for potential future usage
 // export default sequelize;
@@ -29,7 +29,4 @@ if (process.env.FORCE_DB_SCHEMA && !isProduction) {
       .catch((error: any) => console.error('Error creating schema:', error));
 }
 
-module.exports = {
-  // ... your existing database interaction logic using PoolConfig or other methods
-  // You can potentially explore integrating Sequelize gradually if needed
-};
+export default config;
