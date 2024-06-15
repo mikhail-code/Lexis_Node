@@ -69,6 +69,7 @@ export default function createUserRoutes(
         // Create a user object with all attributes
         const userToReturn = {
           userLogin: user.login,
+          userID: user.id,
           name: user.name,
           surname: user.surname,
           email: user.email,
