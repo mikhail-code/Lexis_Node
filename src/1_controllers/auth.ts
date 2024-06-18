@@ -52,6 +52,7 @@ async function loginUser(
 
     // Create a user object with all attributes
     const userToReturn = {
+      userID: user.id,
       userLogin: user.login,
       name: user.name,
       surname: user.surname,

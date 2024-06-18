@@ -17,12 +17,12 @@ const router = express.Router();
 
 // Get all dictionaries for a user (assuming user ID in request body)
 router.get("/", async (req: express.Request, res: express.Response) => {
-  const { userId } = req.body;
+  const { userId } = req.query;
   if (!userId) {
     return res.status(400).json({ message: "Missing user ID" });
   }
   try {
-    const dictionaries = await getDictionariesByUserId(userId);
+    const dictionaries = await getDictionariesByUserId(userId as string);
     if (!dictionaries) {
       return res.status(404).json({ message: "No dictionaries found" });
     }
@@ -34,12 +34,12 @@ router.get("/", async (req: express.Request, res: express.Response) => {
 });
 
 router.get("/withWords", async (req: express.Request, res: express.Response) => {
-  const { userId } = req.body;
+  const { userId } = req.query;
   if (!userId) {
     return res.status(400).json({ message: "Missing user ID" });
   }
   try {
-    const dictionaries = await getDictionariesWithWordsByUserId(userId);
+    const dictionaries = await getDictionariesWithWordsByUserId(userId as string);
     if (!dictionaries) {
       return res.status(404).json({ message: "No dictionaries found" });
     }
@@ -49,15 +49,16 @@ router.get("/withWords", async (req: express.Request, res: express.Response) => 
     res.status(500).json({ message: "Error fetching dictionaries" });
   }
 });
-
 router.get("/checked", async (req: express.Request, res: express.Response) => {
-  const { userId } = req.body; 
-  const { word } = req.body;
+  const { userId, word } = req.query; 
+  console.log("/checked: ");
+  console.log("userId: " + userId);
+  console.log("word: " + word);
   if (!userId) {
     return res.status(400).json({ message: "Missing user ID" });
   }
   try {
-    const dictionaries = await getUserDictionariesWithExistingWordCheck(userId, word);
+    const dictionaries = await getUserDictionariesWithExistingWordCheck(userId as string, word as string);
     if (!dictionaries) {
       return res.status(404).json({ message: "No dictionaries found" });
     }
@@ -80,21 +81,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
   }
 });
 
-// Get a dictionary by ID
-router.get("/:dictionaryId", async (req: express.Request, res: express.Response) => {
-  const dictionaryId = req.params.dictionaryId;
-  try {
-    const dictionary = await getDictionaryById(dictionaryId);
-    if (!dictionary) {
-      return res.status(404).json({ message: "Dictionary not found" });
-    }
-    res.json(dictionary);
-  } catch (error) {
-    console.error("Error fetching dictionary:", error);
-    res.status(500).json({ message: "Error fetching dictionary" });
-  }
-});
-
 // Delete a dictionary by ID
 router.delete("/:dictionaryId", async (req: express.Request, res: express.Response) => {
   const dictionaryId = req.params.dictionaryId;
@@ -108,6 +94,24 @@ router.delete("/:dictionaryId", async (req: express.Request, res: express.Respon
   }
 });
 
+// Get a dictionary by ID
+router.get("/:dictionaryId", async (req: express.Request, res: express.Response) => {
+  const dictionaryId = req.params.dictionaryId;
+  console.log("dictionaryId: " + dictionaryId);
+  try {
+    const dictionary = await getDictionaryById(dictionaryId);
+    if (!dictionary) {
+      return res.status(404).json({ message: "Dictionary not found" });
+    }
+    res.json(dictionary);
+  } catch (error) {
+    console.error("Error fetching dictionary:", error);
+    res.status(500).json({ message: "Error fetching dictionary" });
+  }
+});
+
+
+// add word
 router.post("/:dictionaryId/word", async (req: express.Request, res: express.Response) => {
   const dictionaryId = req.params.dictionaryId;
   const wordToAdd = req.body.word;
@@ -120,6 +124,7 @@ router.post("/:dictionaryId/word", async (req: express.Request, res: express.Res
   }
 });
 
+// delete word
 router.delete("/:dictionaryId/word", async (req: express.Request, res: express.Response) => {
   const dictionaryId = req.params.dictionaryId;
   const wordToDelete = req.body.word;

@@ -3,14 +3,17 @@ import { v4 as uuidv4 } from "uuid";
 import config from "../0_config/database";
 
 interface GetDictionaryInfoResponse {
+  id: string;
   tags: string[];
   name: string;
   owner: string;
   main_language: string;
   learning_language: string;
   owner_uuid: string;
+  lastModified?: Date;
 }
 interface GetDictionaryResponse {
+  id: string;
   tags: string[];
   name: string;
   owner: string;
@@ -18,6 +21,7 @@ interface GetDictionaryResponse {
   learning_language: string;
   owner_uuid: string;
   words: Word[];
+  lastModified?: Date;
 }
 export class Word {
   constructor(
@@ -118,12 +122,11 @@ export class Dictionary {
         return [];
       }
 
-      // Build the query to fetch dictionary details using a single IN clause
       const dictionaryIdsPlaceholder = subscribedDictionaryIds
         .map((_: unknown, index: number) => `$${index + 1}`)
         .join(",");
       const getDictionariesQuery = `
-        SELECT d.id, d.name, d.tags, d.owner, d.main_language, d.learning_language, d.words, u.login, u.id AS user_uuid
+        SELECT d.id, d.name, d.tags, d.owner, d.main_language, d.learning_language, d.words, u.login, u.id AS user_uuid, d.last_modified
         FROM dictionaries d
         INNER JOIN users u ON d.owner = u.id
         WHERE d.id IN (${dictionaryIdsPlaceholder});
@@ -134,15 +137,17 @@ export class Dictionary {
         subscribedDictionaryIds
       );
 
-      // Convert results to the desired response object format
+      // Convert results to the desired response object format, including last_modified
       return dictionariesResult.rows.map((row) => ({
         tags: row.tags,
         name: row.name,
+        id: row.id,
         owner: row.login,
         main_language: row.main_language,
         learning_language: row.learning_language,
         owner_uuid: row.user_uuid,
         words: row.words,
+        lastModified: row.last_modified, // Add last_modified to the response
       }));
     } catch (error) {
       console.error("Error fetching subscribed dictionaries:", error);
@@ -184,36 +189,38 @@ export class Dictionary {
 
       // Build the query to fetch dictionary details using a single IN clause
       const dictionaryIdsPlaceholder = subscribedDictionaryIds
-        .map((_: unknown, index: number) => `$${index + 1}`)
-        .join(",");
-      const getDictionariesQuery = `
-        SELECT d.id, d.name, d.tags, d.owner, d.main_language, d.learning_language, u.login, u.id AS user_uuid
-        FROM dictionaries d
-        INNER JOIN users u ON d.owner = u.id
-        WHERE d.id IN (${dictionaryIdsPlaceholder});
-      `;
+      .map((_: unknown, index: number) => `$${index + 1}`)
+      .join(",");
+    const getDictionariesQuery = `
+      SELECT d.id, d.name, d.tags, d.owner, d.main_language, d.learning_language, u.login, u.id AS user_uuid, d.last_modified
+      FROM dictionaries d
+      INNER JOIN users u ON d.owner = u.id
+      WHERE d.id IN (${dictionaryIdsPlaceholder});
+    `;
 
-      const dictionariesResult = await client.query(
-        getDictionariesQuery,
-        subscribedDictionaryIds
-      );
+    const dictionariesResult = await client.query(
+      getDictionariesQuery,
+      subscribedDictionaryIds
+    );
 
-      // Convert results to the desired response object format
-      return dictionariesResult.rows.map((row) => ({
-        tags: row.tags,
-        name: row.name,
-        owner: row.login,
-        main_language: row.main_language,
-        learning_language: row.learning_language,
-        owner_uuid: row.user_uuid,
-      }));
-    } catch (error) {
-      console.error("Error fetching subscribed dictionaries:", error);
-      throw error; // Re-throw the error for handling in the controller
-    } finally {
-      client.release();
-    }
+    // Convert results to the desired response object format, including last_modified
+    return dictionariesResult.rows.map((row) => ({
+      tags: row.tags,
+      name: row.name,
+      id: row.id,
+      owner: row.login,
+      main_language: row.main_language,
+      learning_language: row.learning_language,
+      owner_uuid: row.user_uuid,
+      lastModified: row.last_modified ? row.last_modified : null, // Handle potential null values
+    }));
+  } catch (error) {
+    console.error("Error fetching subscribed dictionaries:", error);
+    throw error; // Re-throw the error for handling in the controller
+  } finally {
+    client.release();
   }
+}
 
   // Define the interface for the desired response structure
 
@@ -268,12 +275,6 @@ export class Dictionary {
 
     const client: PoolClient = await pool.connect();
     try {
-      // Validate UUID format before proceeding with the query
-      if (!isValidUuid(dictionaryId)) {
-        throw new Error(
-          "Invalid dictionary ID format. Please provide a valid UUID."
-        );
-      }
 
       const query = `
               SELECT *
