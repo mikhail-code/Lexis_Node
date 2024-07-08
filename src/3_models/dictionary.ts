@@ -11,7 +11,9 @@ interface GetDictionaryInfoResponse {
   learning_language: string;
   owner_uuid: string;
   lastModified?: Date;
+  wordsAmount: number;
 }
+
 interface GetDictionaryResponse {
   id: string;
   tags: string[];
@@ -22,7 +24,13 @@ interface GetDictionaryResponse {
   owner_uuid: string;
   words: Word[];
   lastModified?: Date;
+  wordsAmount: number;
 }
+function countWords(words: any): number {
+  if (!words) return 0;
+  return Array.isArray(words) ? words.length : Object.keys(words).length;
+}
+
 export class Word {
   constructor(
     public word: string,
@@ -81,7 +89,8 @@ export class Dictionary {
     learning_language: string,
     tags?: string[],
     words?: any,
-    subscribed_users?: string[]
+    subscribed_users?: string[],
+    public wordsAmount: number = 0
   ) {
     this.id = id;
     this.name = name;
@@ -91,7 +100,9 @@ export class Dictionary {
     this.tags = tags || [];
     this.words = words || [];
     this.subscribed_users = subscribed_users || [];
+    this.wordsAmount = countWords(this.words); // This should now be safe
   }
+
   static async getDictionaries(
     userId: string
   ): Promise<GetDictionaryResponse[]> {
@@ -146,12 +157,13 @@ export class Dictionary {
         main_language: row.main_language,
         learning_language: row.learning_language,
         owner_uuid: row.user_uuid,
-        words: row.words,
-        lastModified: row.last_modified, // Add last_modified to the response
+        words: row.words || [], // Ensure words is always an array
+        lastModified: row.last_modified,
+        wordsAmount: countWords(row.words), // This should now be safe
       }));
     } catch (error) {
       console.error("Error fetching subscribed dictionaries:", error);
-      throw error; // Re-throw the error for handling in the controller
+      throw error;
     } finally {
       client.release();
     }
@@ -189,38 +201,39 @@ export class Dictionary {
 
       // Build the query to fetch dictionary details using a single IN clause
       const dictionaryIdsPlaceholder = subscribedDictionaryIds
-      .map((_: unknown, index: number) => `$${index + 1}`)
-      .join(",");
-    const getDictionariesQuery = `
-      SELECT d.id, d.name, d.tags, d.owner, d.main_language, d.learning_language, u.login, u.id AS user_uuid, d.last_modified
+        .map((_: unknown, index: number) => `$${index + 1}`)
+        .join(",");
+      const getDictionariesQuery = `
+      SELECT d.id, d.name, d.tags, d.owner, d.main_language, d.learning_language, d.words, u.login, u.id AS user_uuid, d.last_modified
       FROM dictionaries d
       INNER JOIN users u ON d.owner = u.id
       WHERE d.id IN (${dictionaryIdsPlaceholder});
     `;
 
-    const dictionariesResult = await client.query(
-      getDictionariesQuery,
-      subscribedDictionaryIds
-    );
-
-    // Convert results to the desired response object format, including last_modified
-    return dictionariesResult.rows.map((row) => ({
-      tags: row.tags,
-      name: row.name,
-      id: row.id,
-      owner: row.login,
-      main_language: row.main_language,
-      learning_language: row.learning_language,
-      owner_uuid: row.user_uuid,
-      lastModified: row.last_modified ? row.last_modified : null, // Handle potential null values
-    }));
-  } catch (error) {
-    console.error("Error fetching subscribed dictionaries:", error);
-    throw error; // Re-throw the error for handling in the controller
-  } finally {
-    client.release();
+      const dictionariesResult = await client.query(
+        getDictionariesQuery,
+        subscribedDictionaryIds
+      );
+      
+      // Convert results to the desired response object format, including last_modified
+      return dictionariesResult.rows.map((row) => ({
+        tags: row.tags,
+        name: row.name,
+        id: row.id,
+        owner: row.login,
+        main_language: row.main_language,
+        learning_language: row.learning_language,
+        owner_uuid: row.user_uuid,
+        lastModified: row.last_modified ? row.last_modified : null,
+        wordsAmount: countWords(row.words),
+      }));
+    } catch (error) {
+      console.error("Error fetching subscribed dictionaries:", error);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
-}
 
   // Define the interface for the desired response structure
 
@@ -271,39 +284,37 @@ export class Dictionary {
   }
 
   static async getDictionaryById(dictionaryId: string): Promise<Dictionary> {
-    const pool = new Pool(config); // Assuming your database configuration
-
+    const pool = new Pool(config);
     const client: PoolClient = await pool.connect();
     try {
-
       const query = `
-              SELECT *
-              FROM dictionaries
-              WHERE id = $1
-            `;
+        SELECT *
+        FROM dictionaries
+        WHERE id = $1
+      `;
 
       const result = await client.query(query, [dictionaryId]);
       if (result.rows.length === 0) {
         throw new Error(`Dictionary with id ${dictionaryId} not found`);
       }
-      // const dictionaryData = result.rows[0];
-      // console.log(dictionaryData.words);
-      // console.log(typeof dictionaryData.words);
-      // dictionaryData.words = JSON.parse(dictionaryData.words); // Converting JSON string to array
+
+      const dictionaryData = result.rows[0];
+      const wordsAmount = countWords(dictionaryData.words);
 
       return new Dictionary(
-        result.rows[0].id,
-        result.rows[0].name,
-        result.rows[0].owner,
-        result.rows[0].main_language,
-        result.rows[0].learning_language,
-        result.rows[0].tags,
-        result.rows[0].words,
-        result.rows[0].subscribed_users
+        dictionaryData.id,
+        dictionaryData.name,
+        dictionaryData.owner,
+        dictionaryData.main_language,
+        dictionaryData.learning_language,
+        dictionaryData.tags,
+        dictionaryData.words,
+        dictionaryData.subscribed_users,
+        wordsAmount // New attribute
       );
     } catch (error) {
       console.error("Error fetching dictionary:", error);
-      throw error; // Re-throw for handling in the controller
+      throw error;
     } finally {
       client.release();
     }

@@ -10,6 +10,8 @@ interface CheckedDictionary{ //returns list of dictionaries with existing word c
   dictionaryName: string;
   dictionaryId: string;
   exists: boolean;
+  lastModified: Date | null;
+  wordsAmount: number;
 }
 async function getUserDictionariesWithExistingWordCheck(
   userId: string,
@@ -17,25 +19,27 @@ async function getUserDictionariesWithExistingWordCheck(
 ): Promise<CheckedDictionary[]> {
   try {
     const dictionaries = await Dictionary.getDictionaries(userId);
-    if (!dictionaries) {
+    if (!dictionaries || dictionaries.length === 0) {
       console.warn("No dictionaries found for user:", userId);
-      return []; // Return empty array if no dictionaries
+      return [];
     }
     console.log(dictionaries);
     const checkedDictionaries: CheckedDictionary[] = [];
     for (const dictionary of dictionaries) {
-      if (!dictionary.words) {
-        console.warn("Dictionary", dictionary.name, "has no words property");
-        continue; // Skip this dictionary if words is missing
-      }
-      const lowerCaseWord = word.toLowerCase().trim(); // Preprocess word from request
-      const wordExists = dictionary.words.some(
+      const words = dictionary.words || [];
+      const wordsAmount = Array.isArray(words) ? words.length : Object.keys(words).length;
+      
+      const lowerCaseWord = word.toLowerCase().trim();
+      const wordExists = words.some(
         (dictWord: Word) => dictWord.word.toLowerCase().trim() === lowerCaseWord
       );
+      
       const newCheckedDictionary: CheckedDictionary = {
         dictionaryName: dictionary.name,
         dictionaryId: dictionary.id,
-        exists: wordExists
+        exists: wordExists,
+        lastModified: dictionary.lastModified || null,
+        wordsAmount: wordsAmount
       };
 
       checkedDictionaries.push(newCheckedDictionary);
