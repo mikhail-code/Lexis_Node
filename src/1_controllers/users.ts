@@ -1,51 +1,122 @@
-import createError from 'http-errors';
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
+import { User } from '../3_models/user';
+// import { generateAuthToken } from '../models/auth';
+import { LoginRequest, RegisterRequest, UserResponse } from '../3_models/types';
 
-import express from "express";
-import { User } from "../3_models/user";
-import { generateAuthToken } from "../3_models/auth";
+export class UserController {
+  static async getUsers(req: Request, res: Response) {
+    try {
+      const users = await User.getUsers(50);
+      if (!users?.length) {
+        return res.status(404).json({ message: "No users found" });
+      }
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Error fetching users" });
+    }
+  }
 
+  static async login(req: Request<{}, {}, LoginRequest>, res: Response) {
+    const { login, password } = req.body;
 
-async function getUsers(req: express.Request, res: express.Response) {
-  const useMockService = req.app.get("useMockService"); // Access app-level flag
+    try {
+      const user = await User.getUserByLogin(login);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid login credentials" });
+      }
 
-  // ... Implement logic using useMockService as before (get users)
+      const isPasswordValid = await user.comparePassword(password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: "Invalid login credentials" });
+      }
+
+      // const token = generateAuthToken(user.id);
+      // const userResponse: UserResponse = {
+      //   userLogin: user.login,
+      //   userID: user.id,
+      //   name: user.name,
+      //   surname: user.surname,
+      //   email: user.email,
+      //   country: user.country,
+      //   configuration: user.config
+      // };
+
+      // res.json({ 
+      //   message: "Login successful", 
+      //   token, 
+      //   user: userResponse 
+      // });
+    } catch (error) {
+      console.error("Error during login:", error);
+      res.status(500).json({ message: "Error logging in" });
+    }
+  }
+
+  static async register(req: Request<{}, {}, RegisterRequest>, res: Response) {
+    const {
+      name,
+      email,
+      password,
+      surname = "",
+      country = "",
+      login,
+      birthDate = new Date()
+    } = req.body;
+
+    try {
+      const userConfig = { 
+        base_language: "en", 
+        learning_languages: [] 
+      };
+
+      const userData = {
+        name,
+        surname,
+        login,
+        password,
+        email,
+        country,
+        birth_date: birthDate,
+        config: userConfig,
+        subscribedDictionaries: []
+      };
+
+      const createdUser = await User.createUser(userData);
+
+      res.status(201).json({
+        message: `User created successfully with ID: ${createdUser.id}`,
+        userId: createdUser.id
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Error creating user" });
+    }
+  }
+
+  static async getUserById(req: Request, res: Response) {
+    try {
+      const user = await User.getUserById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Error fetching user" });
+    }
+  }
+
+  // static async getAuthenticatedUser(req: Request, res: Response) {
+  //   try {
+  //     const user = await User.getUserById(req.user!.id);
+  //     if (!user) {
+  //       return res.status(404).json({ message: "User not found" });
+  //     }
+  //     res.json(user);
+  //   } catch (error) {
+  //     console.error("Error fetching authenticated user:", error);
+  //     res.status(500).json({ message: "Error fetching user data" });
+  //   }
+  // }
 }
-// async function getAuthenticatedUser(
-//     req: express.Request<any, any, { userId: string }>, // Use the extended Request type
-//     res: express.Response,
-//     next: express.NextFunction
-//   ): Promise<void | express.Response<any, any>> {
-//     try {
-//       // Extract userId from the request (assuming it's stored somewhere)
-//       const userId = req.userId; // Adapt this based on how you store the user ID
-  
-//       // Find the user using the userId
-//       const user = await User.getUserById(userId);
-  
-//       if (user) {
-//         // User found, return success response with sanitized user data
-//         const sanitizedUser = {
-//           id: user.id,
-//           name: user.name,
-//           surname: user.surname,
-//           login: user.login, // Consider including or excluding login based on security needs
-//           email: user.email,
-//           country: user.country,
-//           birth_date: user.birth_date.toISOString(), // Convert birth_date to ISO string
-//           config: user.config,
-//         };
-//         return res.status(200).json({ data: sanitizedUser });
-//       }
-  
-//       // User not found, return Not Found error
-//       const error = createError.NotFound("User not found");
-//       throw error;
-//     } catch (error) {
-//       // Handle errors appropriately, potentially logging or returning a generic error
-//       console.error("Error fetching authenticated user:", error);
-//       return next(error);
-//     }
-//   }
-
-export { getUsers };

@@ -1,230 +1,91 @@
-import { Pool, PoolClient } from "pg";
-import config from "../0_config/database";
-import { Dictionary, Word, validateWordData} from "../3_models/dictionary";
+import { Dictionary } from '../3_models/dictionary';
+import { Word, CheckedDictionary } from '../3_models/types';
 
-import express from "express";
-
-const pool = new Pool(config);
-
-interface CheckedDictionary{ //returns list of dictionaries with existing word check
-  dictionaryName: string;
-  dictionaryId: string;
-  exists: boolean;
-}
-async function getUserDictionariesWithExistingWordCheck(
-  userId: string,
-  word: string
-): Promise<CheckedDictionary[]> {
-  try {
-    const dictionaries = await Dictionary.getDictionaries(userId);
-    if (!dictionaries) {
-      console.warn("No dictionaries found for user:", userId);
-      return []; // Return empty array if no dictionaries
-    }
-    console.log(dictionaries);
-    const checkedDictionaries: CheckedDictionary[] = [];
-    for (const dictionary of dictionaries) {
-      if (!dictionary.words) {
-        console.warn("Dictionary", dictionary.name, "has no words property");
-        continue; // Skip this dictionary if words is missing
-      }
-      const lowerCaseWord = word.toLowerCase().trim(); // Preprocess word from request
-      const wordExists = dictionary.words.some(
-        (dictWord: Word) => dictWord.word.toLowerCase().trim() === lowerCaseWord
-      );
-      const newCheckedDictionary: CheckedDictionary = {
+export class DictionaryController {
+  static async getUserDictionariesWithExistingWordCheck(
+    userId: string,
+    word: string
+  ): Promise<CheckedDictionary[]> {
+    try {
+      const dictionaries = await Dictionary.getDictionaries(userId);
+      
+      return dictionaries.map(dictionary => ({
         dictionaryName: dictionary.name,
         dictionaryId: dictionary.id,
-        exists: wordExists
-      };
-
-      checkedDictionaries.push(newCheckedDictionary);
+        exists: dictionary.words?.some(
+          dictWord => dictWord.word.toLowerCase().trim() === word.toLowerCase().trim()
+        ) || false
+      }));
+    } catch (error) {
+      console.error('Error checking word existence:', error);
+      throw error;
     }
-
-    return checkedDictionaries;
-  } catch (error) {
-    console.error("Error fetching subscribed dictionaries:", error);
-    throw error;
   }
-}
 
-
-
-async function validateDictionaryData(data: any) {
-  // Implement validation logic here (e.g., check for required fields)
-  if (!data.name || !data.owner) {
-    throw new Error("Missing required fields");
+  static async addNewDictionary(data: Partial<Dictionary>): Promise<Dictionary> {
+    if (!data.name || !data.owner) {
+      throw new Error('Missing required fields: name and owner');
+    }
+    return Dictionary.createDictionary(data);
   }
-}
-async function addNewDictionary(body: any) {
-  try {
-    const dictionaryData = body;
-    await validateDictionaryData(dictionaryData);
 
-    const newDictionary = await Dictionary.createDictionary(dictionaryData);
-    return newDictionary; // Respond with the new dictionary object
-  } catch (error) {
-    console.error("Error adding new dictionary:", error);
-    throw error;
+  static async getDictionariesByUserId(userId: string) {
+    return Dictionary.getDictionariesInfo(userId);
   }
-}
-// Get all dictionaries for a user (using Dictionary.getDictionaries)
-async function getDictionariesByUserId(userId: string) {
-  const dictionaries = await Dictionary.getDictionariesInfo(userId);
-  return dictionaries;
-}
-async function getDictionariesWithWordsByUserId(userId: string) {
-  const dictionaries = await Dictionary.getDictionaries(userId);
-  return dictionaries;
-}
 
-// Get a dictionary by ID (using Dictionary.getDictionaryById)
-async function getDictionaryById(dictionaryId: string) {
-  const dictionary = await Dictionary.getDictionaryById(dictionaryId);
-  return dictionary;
-}
+  static async getDictionariesWithWordsByUserId(userId: string) {
+    return Dictionary.getDictionaries(userId);
+  }
 
-// Delete a dictionary by ID (using Dictionary.deleteDictionary)
-async function deleteDictionary(dictionaryId: string, userId: string) {
-  await Dictionary.deleteDictionary(dictionaryId, userId);
-  // You can optionally return a success message here
-}
-
-// WORDS:
-async function addWordToDictionary(
-  dictionaryId: string,
-  wordData: any
-): Promise<Word> {
-  try {
-    // Validate the word data before proceeding
-    await validateWordData(wordData);
-
-    // Fetch the dictionary by ID (can be refactored to use existing logic)
-    const dictionary = await Dictionary.getDictionaryById(dictionaryId);
+  static async getDictionaryById(dictionaryId: string) {
+    const dictionary = await Dictionary.findByPk(dictionaryId);
     if (!dictionary) {
       throw new Error(`Dictionary with id ${dictionaryId} not found`);
     }
-
-    // Convert word data to Word object
-    const newWord = new Word(
-      wordData.word,
-      wordData.translation,
-      wordData.transliteration,
-      wordData.comment
-    );
-
-    const wordIndex = dictionary.words.findIndex(
-      (word: Word) => word.word === newWord.word
-    );
-
-    if (wordIndex != -1) {
-      throw new Error(`Word '${newWord.word}' already exists in dictionary`);
-    }
-
-    const wordsArray = Object.values(dictionary.words);
-    // Push the new word into the array
-    wordsArray.push(newWord);
-    // Update dictionary.words with the new array
-    dictionary.words = wordsArray;
-
-    // Save the updated dictionary (replace with your logic for updating dictionaries)
-    await dictionary.updateWords();
-    console.log("after changes:");
-    console.log(dictionary.words);
-
-    return newWord; // Return the newly added word
-  } catch (error) {
-    console.error("Error adding word to dictionary:", error);
-    throw error; // Re-throw for handling in the route
+    return dictionary;
   }
-}
 
-// Function to delete a word from a dictionary
-async function deleteWordFromDictionary(
-  dictionaryId: string,
-  wordToDelete: string
-): Promise<void> {
-  try {
-    // Fetch the dictionary by ID (can be refactored to use existing logic)
-    const dictionary = await Dictionary.getDictionaryById(dictionaryId);
+  static async deleteDictionary(dictionaryId: string, userId: string) {
+    const dictionary = await Dictionary.findByPk(dictionaryId);
     if (!dictionary) {
       throw new Error(`Dictionary with id ${dictionaryId} not found`);
     }
-
-    // Find the index of the word to delete
-    const wordIndex = dictionary.words.findIndex(
-      (word: Word) => word.word === wordToDelete
-    );
-
-    if (wordIndex === -1) {
-      throw new Error(`Word '${wordToDelete}' not found in dictionary`);
+    if (dictionary.owner !== userId) {
+      throw new Error('Unauthorized to delete this dictionary');
     }
-    const wordsArray = Object.values(dictionary.words);
-    // Push the new word into the array
-    wordsArray.splice(wordIndex, 1);
-    // Update dictionary.words with the new array
-    dictionary.words = wordsArray;
-
-    // Remove the word from the dictionary's words array
-
-    // Save the updated dictionary (replace with your logic for updating dictionaries)
-    await dictionary.updateWords();
-  } catch (error) {
-    console.error("Error deleting word from dictionary:", error);
-    throw error; // Re-throw for handling in the route
+    await dictionary.destroy();
   }
-}
 
-// Function to update a word in a dictionary
-async function updateWordInDictionary(
-  dictionaryId: string,
-  updatedWordData: any
-): Promise<void> {
-  try {
-    // Validate the updated word data before proceeding
-    await validateWordData(updatedWordData);
-
-    // Fetch the dictionary by ID (can be refactored to use existing logic)
-    const dictionary = await Dictionary.getDictionaryById(dictionaryId);
+  static async addWordToDictionary(
+    dictionaryId: string,
+    wordData: Word
+  ): Promise<void> {
+    const dictionary = await Dictionary.findByPk(dictionaryId);
     if (!dictionary) {
       throw new Error(`Dictionary with id ${dictionaryId} not found`);
     }
+    await dictionary.addWord(wordData);
+  }
 
-    // Find the index of the word to update
-    const wordIndex = dictionary.words.findIndex(
-      (word: Word) => word.word === updatedWordData.word
-    );
-
-    if (wordIndex === -1) {
-      throw new Error(`Word '${updatedWordData.word}' not found in dictionary`);
+  static async updateWordInDictionary(
+    dictionaryId: string,
+    wordData: Word
+  ): Promise<void> {
+    const dictionary = await Dictionary.findByPk(dictionaryId);
+    if (!dictionary) {
+      throw new Error(`Dictionary with id ${dictionaryId} not found`);
     }
+    await dictionary.updateWord(wordData);
+  }
 
-    // Update the existing word with the new data
-    dictionary.words[wordIndex] = new Word(
-      updatedWordData.word,
-      updatedWordData.translation,
-      updatedWordData.transliteration,
-      updatedWordData.comment
-    );
-    const wordsArray = Object.values(dictionary.words);
-    // Update dictionary.words with the new array
-    dictionary.words = wordsArray;
-    // Save the updated dictionary (replace with your logic for updating dictionaries)
-    await dictionary.updateWords();
-  } catch (error) {
-    console.error("Error updating word in dictionary:", error);
-    throw error; // Re-throw for handling in the route
+  static async deleteWordFromDictionary(
+    dictionaryId: string,
+    word: string
+  ): Promise<void> {
+    const dictionary = await Dictionary.findByPk(dictionaryId);
+    if (!dictionary) {
+      throw new Error(`Dictionary with id ${dictionaryId} not found`);
+    }
+    await dictionary.deleteWord(word);
   }
 }
-
-export {
-  addNewDictionary,
-  getDictionariesByUserId,
-  getDictionaryById,
-  deleteDictionary,
-  addWordToDictionary,
-  deleteWordFromDictionary,
-  updateWordInDictionary,
-  getUserDictionariesWithExistingWordCheck,
-  getDictionariesWithWordsByUserId,
-};

@@ -1,176 +1,111 @@
-import { Pool, PoolClient } from "pg";
-import config from "../0_config/database";
-import { v4 as uuidv4 } from "uuid";
-import * as bcrypt from "bcryptjs";
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  PrimaryKey,
+  Default,
+  Unique,
+  IsEmail,
+  AllowNull,
+} from 'sequelize-typescript';
+import { Op } from 'sequelize';
+import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 
-const pool = new Pool(config);
+import { Dictionary } from '../3_models/dictionary'; // Import the User model
 
+
+// Define the UserConfig interface
 interface UserConfig {
   base_language: string;
   learning_languages: string[];
 }
 
-export class User {
-  id: string;
-  name: string;
-  surname: string;
-  login: string;
-  password: string;
-  email: string;
-  country: string;
-  birth_date: Date;
-  config: UserConfig;
+// Define the User model
 
-  constructor(
-    id: string = uuidv4(),
-    name: string,
-    surname: string,
-    login: string,
-    password: string,
-    email: string,
-    country: string,
-    birth_date: Date,
-    config: UserConfig
-  ) {
-    this.id = id;
-    this.name = name;
-    this.surname = surname;
-    this.login = login;
-    this.password = password;
-    this.email = email;
-    this.country = country;
-    this.birth_date = birth_date;
-    this.config = config;
-  }
+@Table({ tableName: 'users', timestamps: false })
+export class User extends Model {
+  @Column({ type: DataType.UUID, primaryKey: true,
+    defaultValue: uuidv4() })
+  id!: string;
+
+  @AllowNull(false)
+  @Column({ type: DataType.STRING })
+  name!: string;
+
+  @AllowNull(false)
+  @Column({ type: DataType.STRING })
+  surname!: string;
+
+  @AllowNull(false)
+  @Column({ type: DataType.STRING, unique: true })
+  login!: string;
+
+  @AllowNull(false)
+  @Column({ type: DataType.STRING })
+  password!: string;
+
+  @IsEmail
+  @Unique
+  @AllowNull(false)
+  @Column(DataType.STRING)
+  email!: string;
+
+  @Column({ type: DataType.STRING })
+  country!: string;
+
+  @AllowNull(false)
+  @Column({ type: DataType.DATE })
+  birth_date!: Date;
+
+  @Column({ type: DataType.JSON })
+  config!: UserConfig;
+
+  @Column({ type: DataType.ARRAY(DataType.STRING) })
+  subscribedDictionaries!: Array<string>;
+  
+
+  // Hash the user's password
   async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(10);
-    return await bcrypt.hash(password, salt);
+    return bcrypt.hash(password, salt);
   }
 
+  // Compare the provided password with the hashed password
   async comparePassword(password: string): Promise<boolean> {
-    // Compare the provided password with the hashed password stored in the database
-    const isPasswordMatch = await bcrypt.compare(password, this.password);
-    return isPasswordMatch;
-  }
-  static async createUser(user: User): Promise<User> {
-    //creating and storing user data in the database
-    const client: PoolClient = await pool.connect();
-    const hashedPassword = await user.hashPassword(user.password);
-    try {
-      const result = await client.query(
-        "INSERT INTO users (name, surname, login, password, email, country, birth_date, config) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
-        [
-          user.name,
-          user.surname,
-          user.login,
-          hashedPassword,
-          user.email,
-          user.country,
-          user.birth_date,
-          user.config,
-        ]
-      );
-      // Destructuring to create User object
-      return new User(
-        result.rows[0].id,
-        result.rows[0].name,
-        result.rows[0].surname,
-        result.rows[0].login,
-        result.rows[0].password,
-        result.rows[0].email,
-        result.rows[0].country,
-        result.rows[0].birth_date,
-        result.rows[0].config
-      );
-    } finally {
-      client.release();
-    }
+    return bcrypt.compare(password, this.password);
   }
 
-  static async getUserByLogin(login: string): Promise<User | null> { //or EMail
-    const client: PoolClient = await pool.connect();
-    try {
-      let result = await client.query("SELECT * FROM users WHERE login = $1", [
-        login,
-      ]);
-      if (result.rows.length === 0) {
-        result = await client.query("SELECT * FROM users WHERE email = $1", [
-          login,
-        ]);
-        if (result.rows.length === 0) {
-          return null;
-        }
-      }
-      // Destructuring to create User object
-      return new User(
-        result.rows[0].id,
-        result.rows[0].name,
-        result.rows[0].surname,
-        result.rows[0].login,
-        result.rows[0].password,
-        result.rows[0].email,
-        result.rows[0].country,
-        result.rows[0].birth_date,
-        result.rows[0].config
-      );
-    } finally {
-      client.release();
-    }
+  // Create a new user
+  static async createUser(data: Partial<User>): Promise<User> {
+    const hashedPassword = await bcrypt.hash(data.password!, 10);
+    const newUser = await User.create({
+      ...data,
+      password: hashedPassword,
+    });
+    return newUser;
   }
 
+  // Get a user by login or email
+  static async getUserByLogin(login: string): Promise<any | null> {
+    return User.findOne({
+      where: {
+        [Op.or]: [ //Sequelize's Op.or for logical operations within the where clause.
+          { login },
+          { email: login }
+        ],
+      },
+    });
+  }
+
+  // Get a user by ID
   static async getUserById(id: string): Promise<User | null> {
-    const client: PoolClient = await pool.connect();
-    try {
-      const result = await client.query("SELECT * FROM users WHERE id = $1", [
-        id,
-      ]);
-      if (result.rows.length === 0) {
-        return null;
-      }
-      // Destructuring to create User object
-      return new User(
-        result.rows[0].id,
-        result.rows[0].name,
-        result.rows[0].surname,
-        result.rows[0].login,
-        result.rows[0].password,
-        result.rows[0].email,
-        result.rows[0].country,
-        result.rows[0].birth_date,
-        result.rows[0].config
-      );
-    } finally {
-      client.release();
-    }
+    return User.findByPk(id);
   }
 
-  static async getUsers(limit: number): Promise<User[] | null> {
-    const client: PoolClient = await pool.connect();
-    try {
-      const result = await client.query("SELECT * FROM users LIMIT $1", [
-        limit,
-      ]);
-      if (result.rows.length === 0) {
-        return null;
-      }
-      return result.rows.map(
-        (row) =>
-          new User(
-            row.id,
-            row.name,
-            row.surname,
-            row.login,
-            row.password,
-            row.email,
-            row.country,
-            row.birth_date,
-            row.config
-          )
-      );
-    } finally {
-      client.release();
-    }
+  // Get a list of users with a limit
+  static async getUsers(limit: number): Promise<User[]> {
+    return User.findAll({ limit });
   }
-
-  // Add similar methods for other functionalities like update, delete etc.
 }

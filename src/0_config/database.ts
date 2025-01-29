@@ -1,32 +1,30 @@
-const Sequelize = require('sequelize');
-const isProduction = process.env.NODE_ENV === 'production'; 
+import { Sequelize } from 'sequelize-typescript';
+import { User } from '../3_models/user'; // Import the User model
 require('dotenv').config();
 
- const config = {
+const isProduction = process.env.NODE_ENV === 'production';
+
+const sequelize = new Sequelize({
   dialect: 'postgres',
   host: process.env.DB_HOST,
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: 5432,
-  logging: !isProduction, // Avoid excessive logging in production
+  port: Number(process.env.DB_PORT) || 5432, // Use port from env or default to 5432
+  models: [User], // Register the User model
+  logging: !isProduction, // Disable logging in production
   define: {
     freezeTableName: true, // Prevent Sequelize from pluralizing table names
+    timestamps: true, // Automatically add createdAt and updatedAt
   },
-};
+});
 
-// Initialize Sequelize instance (without force sync)
-const sequelize = new Sequelize(config);
-
-// **Optional:** Export Sequelize instance for potential future usage
-// export default sequelize;
-
-// If FORCE_DB_SCHEMA is set (development only), force schema creation
+// Optional: Force schema sync in non-production environments (use with caution)
 if (process.env.FORCE_DB_SCHEMA && !isProduction) {
-  console.warn('Initializing database schema (development only)');
+  console.warn('Forcing database schema synchronization (development only).');
   sequelize.sync({ force: true })
-      .then(() => console.log('Database schema created successfully'))
-      .catch((error: any) => console.error('Error creating schema:', error));
+    .then(() => console.log('Database schema synchronized successfully.'))
+    .catch((error: any) => console.error('Error synchronizing schema:', error));
 }
 
-export default config;
+export default sequelize;

@@ -1,28 +1,17 @@
-import express from "express";
-import { Dictionary } from "../3_models/dictionary";
-import {
-  addNewDictionary,
-  getDictionariesByUserId,
-  getDictionaryById,
-  deleteDictionary,
-  addWordToDictionary,
-  deleteWordFromDictionary,
-  updateWordInDictionary,
-  getUserDictionariesWithExistingWordCheck,
-  getDictionariesWithWordsByUserId
-} from "../1_controllers/dictionaries";
-// import { verifyToken } from "../middlewares/auth"; // Assuming middleware for authentication
+import express from 'express';
+import { DictionaryController } from '../1_controllers/dictionaries';
+import { isAuthenticated } from '../4_middlewares/auth'; // Assuming middleware for authentication
 
 const router = express.Router();
 
-// Get all dictionaries for a user (assuming user ID in request body)
-router.get("/", async (req: express.Request, res: express.Response) => {
+// Get all dictionaries for a user
+router.get('/', isAuthenticated, async (req: express.Request, res: express.Response) => {
   const { userId } = req.query;
   if (!userId) {
     return res.status(400).json({ message: "Missing user ID" });
   }
   try {
-    const dictionaries = await getDictionariesByUserId(userId as string);
+    const dictionaries = await DictionaryController.getDictionariesByUserId(userId as string);
     if (!dictionaries) {
       return res.status(404).json({ message: "No dictionaries found" });
     }
@@ -33,32 +22,14 @@ router.get("/", async (req: express.Request, res: express.Response) => {
   }
 });
 
-router.get("/withWords", async (req: express.Request, res: express.Response) => {
+// Get all dictionaries with words for a user
+router.get('/withWords', isAuthenticated, async (req: express.Request, res: express.Response) => {
   const { userId } = req.query;
   if (!userId) {
     return res.status(400).json({ message: "Missing user ID" });
   }
   try {
-    const dictionaries = await getDictionariesWithWordsByUserId(userId as string);
-    if (!dictionaries) {
-      return res.status(404).json({ message: "No dictionaries found" });
-    }
-    res.json(dictionaries);
-  } catch (error) {
-    console.error("Error fetching user dictionaries:", error);
-    res.status(500).json({ message: "Error fetching dictionaries" });
-  }
-});
-router.get("/checked", async (req: express.Request, res: express.Response) => {
-  const { userId, word } = req.query; 
-  console.log("/checked: ");
-  console.log("userId: " + userId);
-  console.log("word: " + word);
-  if (!userId) {
-    return res.status(400).json({ message: "Missing user ID" });
-  }
-  try {
-    const dictionaries = await getUserDictionariesWithExistingWordCheck(userId as string, word as string);
+    const dictionaries = await DictionaryController.getDictionariesWithWordsByUserId(userId as string);
     if (!dictionaries) {
       return res.status(404).json({ message: "No dictionaries found" });
     }
@@ -69,11 +40,28 @@ router.get("/checked", async (req: express.Request, res: express.Response) => {
   }
 });
 
-
-// Create a new dictionary (protected route with middleware?)
-router.post("/", async (req: express.Request, res: express.Response) => {
+// Get dictionaries with a check for an existing word
+router.get('/checked', isAuthenticated, async (req: express.Request, res: express.Response) => {
+  const { userId, word } = req.query;
+  if (!userId || !word) {
+    return res.status(400).json({ message: "Missing user ID or word" });
+  }
   try {
-    const newDictionary = await addNewDictionary(req.body);
+    const dictionaries = await DictionaryController.getUserDictionariesWithExistingWordCheck(userId as string, word as string);
+    if (!dictionaries) {
+      return res.status(404).json({ message: "No dictionaries found" });
+    }
+    res.json(dictionaries);
+  } catch (error) {
+    console.error("Error fetching user dictionaries:", error);
+    res.status(500).json({ message: "Error fetching dictionaries" });
+  }
+});
+
+// Create a new dictionary
+router.post('/', isAuthenticated, async (req: express.Request, res: express.Response) => {
+  try {
+    const newDictionary = await DictionaryController.addNewDictionary(req.body);
     res.status(201).json({ message: "Dictionary created successfully", dictionary: newDictionary });
   } catch (error) {
     console.error("Error creating dictionary:", error);
@@ -82,12 +70,12 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 });
 
 // Delete a dictionary by ID
-router.delete("/:dictionaryId", async (req: express.Request, res: express.Response) => {
+router.delete('/:dictionaryId', isAuthenticated, async (req: express.Request, res: express.Response) => {
   const dictionaryId = req.params.dictionaryId;
-  const { userId } = req.body; 
+  const { userId } = req.body;
   try {
-    await deleteDictionary(dictionaryId, userId);
-    res.json({ message: "Dictionary deleted successfully" }); // Or send no content (204)
+    await DictionaryController.deleteDictionary(dictionaryId, userId);
+    res.json({ message: "Dictionary deleted successfully" });
   } catch (error) {
     console.error("Error deleting dictionary:", error);
     res.status(500).json({ message: "Error deleting dictionary" });
@@ -95,11 +83,10 @@ router.delete("/:dictionaryId", async (req: express.Request, res: express.Respon
 });
 
 // Get a dictionary by ID
-router.get("/:dictionaryId", async (req: express.Request, res: express.Response) => {
+router.get('/:dictionaryId', isAuthenticated, async (req: express.Request, res: express.Response) => {
   const dictionaryId = req.params.dictionaryId;
-  console.log("dictionaryId: " + dictionaryId);
   try {
-    const dictionary = await getDictionaryById(dictionaryId);
+    const dictionary = await DictionaryController.getDictionaryById(dictionaryId);
     if (!dictionary) {
       return res.status(404).json({ message: "Dictionary not found" });
     }
@@ -110,26 +97,25 @@ router.get("/:dictionaryId", async (req: express.Request, res: express.Response)
   }
 });
 
-
-// add word
-router.post("/:dictionaryId/word", async (req: express.Request, res: express.Response) => {
+// Add a word to a dictionary
+router.post('/:dictionaryId/word', isAuthenticated, async (req: express.Request, res: express.Response) => {
   const dictionaryId = req.params.dictionaryId;
   const wordToAdd = req.body.word;
   try {
-    const addedWord = await addWordToDictionary(dictionaryId, wordToAdd);
-    res.json({ message: "Word added successfully", word: addedWord });
+    await DictionaryController.addWordToDictionary(dictionaryId, wordToAdd);
+    res.json({ message: "Word added successfully" });
   } catch (error) {
     console.error("Error adding word:", error);
     res.status(500).json({ message: "Error adding word" });
   }
 });
 
-// delete word
-router.delete("/:dictionaryId/word", async (req: express.Request, res: express.Response) => {
+// Delete a word from a dictionary
+router.delete('/:dictionaryId/word', isAuthenticated, async (req: express.Request, res: express.Response) => {
   const dictionaryId = req.params.dictionaryId;
   const wordToDelete = req.body.word;
   try {
-    await deleteWordFromDictionary(dictionaryId, wordToDelete);
+    await DictionaryController.deleteWordFromDictionary(dictionaryId, wordToDelete);
     res.json({ message: "Word deleted successfully" });
   } catch (error) {
     console.error("Error deleting word:", error);
@@ -137,11 +123,12 @@ router.delete("/:dictionaryId/word", async (req: express.Request, res: express.R
   }
 });
 
-router.put("/:dictionaryId/word", async (req: express.Request, res: express.Response) => {
+// Update a word in a dictionary
+router.put('/:dictionaryId/word', isAuthenticated, async (req: express.Request, res: express.Response) => {
   const dictionaryId = req.params.dictionaryId;
   const updatedWord = req.body.word;
   try {
-    await updateWordInDictionary(dictionaryId, updatedWord);
+    await DictionaryController.updateWordInDictionary(dictionaryId, updatedWord);
     res.json({ message: "Word updated successfully" });
   } catch (error) {
     console.error("Error updating word:", error);
