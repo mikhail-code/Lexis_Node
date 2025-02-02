@@ -1,3 +1,4 @@
+// routes/dictionaries.ts
 import express from 'express';
 import { DictionaryController } from '../1_controllers/dictionaries';
 import { isAuthenticated } from '../4_middlewares/auth'; // Assuming middleware for authentication

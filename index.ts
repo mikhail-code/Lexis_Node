@@ -6,6 +6,8 @@ import usersRoutes from './src/0_routes/users';
 import dictionaryRoutes from "./src/0_routes/dictionaries";
 import translationRoutes from './src/0_routes/translation';
 
+import sequelize from './src/0_config/database';
+
 const app: express.Application = express();
 const port = 3000;
 
@@ -27,9 +29,19 @@ app.get('/', (req: express.Request, res: express.Response) => {
 });
 
 // Start the server and listen on the defined port
-app.listen(port, () => {
-    console.log(`Server listening on port: ${port}`);
-});
+sequelize
+  .sync()
+  .then(() => {
+    console.log('Database synchronized successfully.');
+    // Start your server or application logic here
+    app.listen(port, () => {
+        console.log(`Server listening on port: ${port}`);
+    });
+  })
+  .catch((error) => {
+    console.error('Database synchronization error:', error);
+  });
+
 
 module.exports = app;
 

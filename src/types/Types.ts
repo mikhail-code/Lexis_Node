@@ -5,9 +5,10 @@ export interface UserConfig {
   
   export interface Word {
     word: string;
-    translation: string;
-    transliteration?: string;
-    comment?: string;
+    translation?: string;
+    context?: string;
+    notes?: string;
+    createdAt?: Date;
   }
   
   export interface DictionaryInfo {

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { User } from '../3_models/user';
-// import { generateAuthToken } from '../models/auth';
-import { LoginRequest, RegisterRequest, UserResponse } from '../3_models/types';
+import { User } from '../3_models/User';
+import { generateAuthToken } from '../4_middlewares/auth';
+import { LoginRequest, RegisterRequest, UserResponse } from '../types/Types';
 
 export class UserController {
   static async getUsers(req: Request, res: Response) {
@@ -31,22 +31,22 @@ export class UserController {
         return res.status(401).json({ message: "Invalid login credentials" });
       }
 
-      // const token = generateAuthToken(user.id);
-      // const userResponse: UserResponse = {
-      //   userLogin: user.login,
-      //   userID: user.id,
-      //   name: user.name,
-      //   surname: user.surname,
-      //   email: user.email,
-      //   country: user.country,
-      //   configuration: user.config
-      // };
+      const token = generateAuthToken(user.id);
+      const userResponse: UserResponse = {
+        userLogin: user.login,
+        userID: user.id,
+        name: user.name,
+        surname: user.surname,
+        email: user.email,
+        country: user.country,
+        configuration: user.config
+      };
 
-      // res.json({ 
-      //   message: "Login successful", 
-      //   token, 
-      //   user: userResponse 
-      // });
+      res.json({ 
+        message: "Login successful", 
+        token, 
+        user: userResponse 
+      });
     } catch (error) {
       console.error("Error during login:", error);
       res.status(500).json({ message: "Error logging in" });
@@ -107,16 +107,16 @@ export class UserController {
     }
   }
 
-  // static async getAuthenticatedUser(req: Request, res: Response) {
-  //   try {
-  //     const user = await User.getUserById(req.user!.id);
-  //     if (!user) {
-  //       return res.status(404).json({ message: "User not found" });
-  //     }
-  //     res.json(user);
-  //   } catch (error) {
-  //     console.error("Error fetching authenticated user:", error);
-  //     res.status(500).json({ message: "Error fetching user data" });
-  //   }
-  // }
+  static async getAuthenticatedUser(req: Request, res: Response) {
+    try {
+      const user = await User.getUserById(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching authenticated user:", error);
+      res.status(500).json({ message: "Error fetching user data" });
+    }
+  }
 }

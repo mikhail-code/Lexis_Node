@@ -8,13 +8,12 @@ import {
   Unique,
   IsEmail,
   AllowNull,
+  HasMany
 } from 'sequelize-typescript';
 import { Op } from 'sequelize';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-
-import { Dictionary } from '../3_models/dictionary'; // Import the User model
-
+import  Auth  from './Auth';
 
 // Define the UserConfig interface
 interface UserConfig {
@@ -22,28 +21,43 @@ interface UserConfig {
   learning_languages: string[];
 }
 
-// Define the User model
+// Define interface for User creation attributes
+interface UserCreationAttributes {
+  id?: string;
+  name: string;
+  surname: string;
+  login: string;
+  password: string;
+  email: string;
+  country: string;
+  birth_date: Date;
+  config: UserConfig;
+  subscribedDictionaries: string[];
+}
 
-@Table({ tableName: 'users', timestamps: false })
-export class User extends Model {
-  @Column({ type: DataType.UUID, primaryKey: true,
-    defaultValue: uuidv4() })
+// Define the User model
+@Table({ tableName: 'users', timestamps: true })
+export class User extends Model<User, UserCreationAttributes> {
+  @PrimaryKey
+  @Default(uuidv4)
+  @Column(DataType.UUID)
   id!: string;
 
   @AllowNull(false)
-  @Column({ type: DataType.STRING })
+  @Column(DataType.STRING)
   name!: string;
 
   @AllowNull(false)
-  @Column({ type: DataType.STRING })
+  @Column(DataType.STRING)
   surname!: string;
 
   @AllowNull(false)
-  @Column({ type: DataType.STRING, unique: true })
+  @Unique
+  @Column(DataType.STRING)
   login!: string;
 
   @AllowNull(false)
-  @Column({ type: DataType.STRING })
+  @Column(DataType.STRING)
   password!: string;
 
   @IsEmail
@@ -52,19 +66,21 @@ export class User extends Model {
   @Column(DataType.STRING)
   email!: string;
 
-  @Column({ type: DataType.STRING })
+  @Column(DataType.STRING)
   country!: string;
 
   @AllowNull(false)
-  @Column({ type: DataType.DATE })
+  @Column(DataType.DATE)
   birth_date!: Date;
 
-  @Column({ type: DataType.JSON })
+  @Column(DataType.JSON)
   config!: UserConfig;
 
-  @Column({ type: DataType.ARRAY(DataType.STRING) })
+  @Column(DataType.ARRAY(DataType.STRING))
   subscribedDictionaries!: Array<string>;
-  
+
+  @HasMany(() => Auth)
+  auths!: Auth[];
 
   // Hash the user's password
   async hashPassword(password: string): Promise<string> {
@@ -78,20 +94,21 @@ export class User extends Model {
   }
 
   // Create a new user
-  static async createUser(data: Partial<User>): Promise<User> {
-    const hashedPassword = await bcrypt.hash(data.password!, 10);
+  static async createUser(data: UserCreationAttributes): Promise<User> {
+    const hashedPassword = await bcrypt.hash(data.password, 10);
     const newUser = await User.create({
       ...data,
       password: hashedPassword,
+      id: data.id ?? uuidv4(),
     });
     return newUser;
   }
 
   // Get a user by login or email
-  static async getUserByLogin(login: string): Promise<any | null> {
+  static async getUserByLogin(login: string): Promise<User | null> {
     return User.findOne({
       where: {
-        [Op.or]: [ //Sequelize's Op.or for logical operations within the where clause.
+        [Op.or]: [
           { login },
           { email: login }
         ],
@@ -109,3 +126,4 @@ export class User extends Model {
     return User.findAll({ limit });
   }
 }
+export default User;

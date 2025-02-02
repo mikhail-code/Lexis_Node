@@ -26,7 +26,6 @@ export default function createUserRoutes(useMockService = false): Router {
 
   // Real routes with proper middleware
   router.get('/', isAuthenticated, UserController.getUsers);
-  // router.get('/me', isAuthenticated, UserController.getAuthenticatedUser);
   router.get('/:id', isAuthenticated, UserController.getUserById);
   router.post('/login', validateRequest(loginSchema), UserController.login);
   router.post('/register', validateRequest(registerSchema), UserController.register);

@@ -1,5 +1,5 @@
-import { Dictionary } from '../3_models/dictionary';
-import { Word, CheckedDictionary } from '../3_models/types';
+import Dictionary from '../3_models/Dictionary';
+import { Word, CheckedDictionary } from '../types/Types';
 
 export class DictionaryController {
   static async getUserDictionariesWithExistingWordCheck(

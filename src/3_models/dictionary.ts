@@ -7,52 +7,41 @@ import {
   ForeignKey,
   BelongsTo,
   Default,
-  Unique,
-  IsEmail,
   AllowNull,
 } from 'sequelize-typescript';
-import { User } from '../3_models/user'; // Import the User model
+import User from './User'; // Ensure correct import path
 import { v4 as uuidv4 } from 'uuid';
-import { Word, DictionaryResponse, DictionaryInfo } from './types';
-import sequelize from '../0_config/database';
+import { Word, DictionaryResponse, DictionaryInfo } from '../types/Types'; // Adjust import path as necessary
 
-export class Dictionary extends Model {
-  @Column({
-    type: DataType.UUID,
-    primaryKey: true,
-    defaultValue: DataType.UUIDV4
-  })
+
+@Table({ tableName: 'dictionaries', timestamps: true })
+class Dictionary extends Model<Dictionary> {
+  @PrimaryKey
+  @Default(uuidv4)
+  @Column(DataType.UUID)
   id!: string;
 
-  @Column({
-    type: DataType.STRING,
-    allowNull: false
-  })
+  @AllowNull(false)
+  @Column(DataType.STRING)
   name!: string;
 
   @Column(DataType.ARRAY(DataType.STRING))
   tags?: string[];
 
-  @Column({
-    type: DataType.STRING,
-    allowNull: false
-  })
+  @AllowNull(false)
+  @Column(DataType.STRING)
   main_language!: string;
 
-  @Column({
-    type: DataType.STRING,
-    allowNull: false
-  })
+  @AllowNull(false)
+  @Column(DataType.STRING)
   learning_language!: string;
 
   @Column(DataType.JSONB)
   words?: Word[];
 
   @ForeignKey(() => User)
-  @Column({
-    type: DataType.UUID,
-    allowNull: false
-  })
+  @AllowNull(false)
+  @Column(DataType.UUID)
   owner!: string;
 
   @BelongsTo(() => User)
@@ -67,12 +56,12 @@ export class Dictionary extends Model {
 
       const dictionaries = await Dictionary.findAll({
         where: {
-          id: user.subscribedDictionaries
+          id: user.subscribedDictionaries,
         },
-        include: [{ model: User, as: 'user' }]
+        include: [{ model: User, as: 'user' }],
       });
 
-      return dictionaries.map(dict => ({
+      return dictionaries.map((dict) => ({
         id: dict.id,
         name: dict.name,
         tags: dict.tags || [],
@@ -81,7 +70,7 @@ export class Dictionary extends Model {
         learning_language: dict.learning_language,
         owner_uuid: dict.user.id,
         words: dict.words || [],
-        lastModified: dict.updatedAt
+        lastModified: dict.updatedAt,
       }));
     } catch (error) {
       console.error('Error fetching dictionaries:', error);
@@ -98,12 +87,12 @@ export class Dictionary extends Model {
 
       const dictionaries = await Dictionary.findAll({
         where: {
-          id: user.subscribedDictionaries
+          id: user.subscribedDictionaries,
         },
-        include: [{ model: User, as: 'user' }]
+        include: [{ model: User, as: 'user' }],
       });
 
-      return dictionaries.map(dict => ({
+      return dictionaries.map((dict) => ({
         id: dict.id,
         name: dict.name,
         tags: dict.tags || [],
@@ -111,7 +100,7 @@ export class Dictionary extends Model {
         main_language: dict.main_language,
         learning_language: dict.learning_language,
         owner_uuid: dict.user.id,
-        lastModified: dict.updatedAt
+        lastModified: dict.updatedAt,
       }));
     } catch (error) {
       console.error('Error fetching dictionary info:', error);
@@ -120,20 +109,27 @@ export class Dictionary extends Model {
   }
 
   static async createDictionary(data: Partial<Dictionary>): Promise<Dictionary> {
-    const transaction = await sequelize.transaction();
+    // Get sequelize from the model (ensure it's initialized)
+    const transaction = await Dictionary.sequelize!.transaction();
     try {
-      const dictionary = await Dictionary.create({
-        ...data,
-        id: uuidv4(),
-        words: []
-      }, { transaction });
-
+      const dictionary = await Dictionary.create(
+        {
+          ...data,
+          id: uuidv4(),
+          words: [],
+        } as Dictionary,
+        { transaction }
+      );
+  
       const user = await User.findByPk(data.owner!, { transaction });
       if (user) {
-        user.subscribedDictionaries = [...(user.subscribedDictionaries || []), dictionary.id];
+        user.subscribedDictionaries = [
+          ...(user.subscribedDictionaries || []),
+          dictionary.id,
+        ];
         await user.save({ transaction });
       }
-
+  
       await transaction.commit();
       return dictionary;
     } catch (error) {
@@ -146,8 +142,8 @@ export class Dictionary extends Model {
     if (!this.words) {
       this.words = [];
     }
-    
-    const wordExists = this.words.some(w => w.word === wordData.word);
+
+    const wordExists = this.words.some((w) => w.word === wordData.word);
     if (wordExists) {
       throw new Error(`Word '${wordData.word}' already exists in dictionary`);
     }
@@ -161,7 +157,7 @@ export class Dictionary extends Model {
       throw new Error('Dictionary has no words');
     }
 
-    const index = this.words.findIndex(w => w.word === wordData.word);
+    const index = this.words.findIndex((w) => w.word === wordData.word);
     if (index === -1) {
       throw new Error(`Word '${wordData.word}' not found in dictionary`);
     }
@@ -175,7 +171,7 @@ export class Dictionary extends Model {
       throw new Error('Dictionary has no words');
     }
 
-    const index = this.words.findIndex(w => w.word === word);
+    const index = this.words.findIndex((w) => w.word === word);
     if (index === -1) {
       throw new Error(`Word '${word}' not found in dictionary`);
     }
@@ -184,3 +180,5 @@ export class Dictionary extends Model {
     await this.save();
   }
 }
+
+export default Dictionary;
