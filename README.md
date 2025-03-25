@@ -14,6 +14,8 @@ Auth API:
 - login ✅
 - logout ⏳
 - token refresh ⏳
+
+
 User Controller API:
 - change user configuration ⏳
 - dictionaries table (DB) ⏳
@@ -21,15 +23,22 @@ User Controller API:
 - get dictionary data ⏳
 - delete dictionary ⏳
 - edit dictionary ⏳
+
+  
 Translation API:
 - search phrase ⏳
+
+  
 User Controller API:
 - add phrase to dictionary ⏳
 - remove phrase from dictionary ⏳
+
 Community API:
 - get open user dictionaries ⏳
 - subscribe to dictionary ⏳
 - copy dictionary ⏳
+
+- 
 **MVP**
 
 
