@@ -142,41 +142,42 @@ class Dictionary extends Model<Dictionary> {
     if (!this.words) {
       this.words = [];
     }
-
-    const wordExists = this.words.some((w) => w.word === wordData.word);
+    const wordExists = this.words?.some((w) => w.word === wordData.word);
     if (wordExists) {
       throw new Error(`Word '${wordData.word}' already exists in dictionary`);
     }
-
     this.words.push(wordData);
+    this.changed('words', true); // Mark the 'words' column as changed because this is the way in squelise apparently
     await this.save();
   }
-
+  
   async updateWord(wordData: Word): Promise<void> {
     if (!this.words) {
       throw new Error('Dictionary has no words');
     }
-
+  
     const index = this.words.findIndex((w) => w.word === wordData.word);
     if (index === -1) {
       throw new Error(`Word '${wordData.word}' not found in dictionary`);
     }
-
+  
     this.words[index] = wordData;
+    this.changed('words', true); // Mark the 'words' column as changed
     await this.save();
   }
-
+  
   async deleteWord(word: string): Promise<void> {
     if (!this.words) {
       throw new Error('Dictionary has no words');
     }
-
+  
     const index = this.words.findIndex((w) => w.word === word);
     if (index === -1) {
       throw new Error(`Word '${word}' not found in dictionary`);
     }
-
+  
     this.words.splice(index, 1);
+    this.changed('words', true); // Mark the 'words' column as changed
     await this.save();
   }
 }

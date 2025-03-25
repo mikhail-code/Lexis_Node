@@ -1,39 +1,75 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
 
+import authRoutes from './src/0_routes/auth';
 import usersRoutes from './src/0_routes/users';
 import dictionaryRoutes from "./src/0_routes/dictionaries";
 import translationRoutes from './src/0_routes/translation';
 
 import sequelize from './src/0_config/database';
 
+dotenv.config();
+
 const app: express.Application = express();
 const port = 3000;
 
-require('dotenv').config();
+const useMockService = process.env.TO_MOCK === 'true';
 
-const useMockService = process.env.TO_MOCK === 'true'; // We need this to excape problems with .env values are string by default
+// Middleware
+app.use(bodyParser.json());
+app.use(cookieParser());
+app.use(cors({
+    origin: function (origin, callback) {
+        const allowedOrigins = [];
 
-app.use(bodyParser.json()); 
-app.use(cors());
+        if (process.env.NODE_ENV === 'production') {
+            // Production: Allow only the specified production origin
+            const prodOrigin = process.env.PROD_CORS_ORIGIN;
+            if (prodOrigin) {
+                allowedOrigins.push(prodOrigin);
+            } else {
+                console.error("PROD_CORS_ORIGIN environment variable is not set in production!");
+                return callback(new Error('CORS error: PROD_CORS_ORIGIN not configured in production.'), false); // Or handle error as needed
+            }
+        } else {
+            // Development: Allow localhost origin (or your development origin if different)
+            allowedOrigins.push(process.env.CORS_ORIGIN || `http://localhost:${port}`); // Fallback to 5173 if CORS_ORIGIN is not set for dev
+        }
 
-// mounting routes
+
+        if (!origin) { // For requests that do not have an origin (like server-to-server)
+            return callback(null, true); // Allow (or decide based on your needs)
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS policy violation for origin: ${origin}`), false);
+        }
+    },
+    credentials: true // Required for cookies
+}));
+
+
+// Routes (rest of your code remains the same)
+app.use('/auth', authRoutes);
 app.use('/users', usersRoutes(useMockService));
 app.use("/dictionaries", dictionaryRoutes);
 app.use('/translation', translationRoutes);
 
-// Route for handling GET requests to the root path (/)
+// Health check route
 app.get('/', (req: express.Request, res: express.Response) => {
-    res.send('Hello World from TypeScript!');
+    res.json({ status: 'ok', message: 'Lexis API is running' });
 });
 
-// Start the server and listen on the defined port
+// Database sync and server start
 sequelize
   .sync()
   .then(() => {
     console.log('Database synchronized successfully.');
-    // Start your server or application logic here
     app.listen(port, () => {
         console.log(`Server listening on port: ${port}`);
     });
@@ -42,20 +78,4 @@ sequelize
     console.error('Database synchronization error:', error);
   });
 
-
-module.exports = app;
-
-import path from 'path';
-import dotenv from 'dotenv';
-import cookieParser from 'cookie-parser';
-
-dotenv.config();
-
-/**
- * New Code
- */
-// import authRoutes from './src/0_routes/auth';
-// import usersRoutes from './src/0_routes/users';
-
-// app.use('/auth', authRoutes);
-// app.use('/users', usersRoutes);
+export default app;

@@ -1,55 +1,28 @@
+import express, { RequestHandler, Response } from "express";
+import { loginUser, registerUser, logout, refreshToken } from "../1_controllers/auth";
+import { validateRequest } from "../4_middlewares/validation";
+import { loginSchema, registerSchema } from "../validation/auth.schema";
+import { AuthenticatedRequest } from "../types/auth.types";
 
-// import express, { Router } from 'express';
+const router = express.Router();
 
-// import authController from '../1_controllers/auth';
-// import authMiddleware from '../4_middlewares/auth';
+// Helper to type the request handlers
+const handler = <T>(fn: (req: AuthenticatedRequest, res: Response) => Promise<T>): RequestHandler => {
+  return (req, res, next) => fn(req as AuthenticatedRequest, res).catch(next);
+};
 
-// const router: Router = express.Router();
+// Create a properly typed wrapper for the auth controllers
+const wrapController = {
+  login: (req: AuthenticatedRequest, res: Response) => loginUser(req, res),
+  register: (req: AuthenticatedRequest, res: Response) => registerUser(req, res),
+  logout: (req: AuthenticatedRequest, res: Response) => logout(req, res),
+  refresh: (req: AuthenticatedRequest, res: Response) => refreshToken(req, res)
+};
 
-// router.post(
-//     '/sign-up',
-//     authController.signUp,
-//     authMiddleware.generateAuthTokens
-// );
+// Authentication routes
+router.post("/login", validateRequest(loginSchema), handler(wrapController.login));
+router.post("/register", validateRequest(registerSchema), handler(wrapController.register));
+router.post("/logout", handler(wrapController.logout));
+router.post("/refresh", handler(wrapController.refresh));
 
-// router.post(
-//     '/login',
-//     authController.login,
-//     authMiddleware.generateAuthTokens
-// );
-
-// router.post(
-//     '/logout',
-//     authMiddleware.isAuthenticated,
-//     authController.logout
-// );
-
-// router.post(
-//     '/refresh',
-//     authController.refreshAccessToken
-// );
-
-// export default router;
-
-
-
-
-
-
-//  my code
-// import express from "express";
-// import { User } from "../3_models/user";
-// import { generateAuthToken } from "../3_models/auth";
-// import { loginUser, registerUser } from "../1_controllers/auth"; // Import controller functions
-
-// export default function createUserRoutes(
-//   useMockService: boolean
-// ): express.Router {
-//   const router = express.Router();
-
-//   router.post("/login", loginUser); // Use function from controller
-
-//   router.post("/register", registerUser); // Use function from controller
-
-//   return router;
-// }
+export default router;

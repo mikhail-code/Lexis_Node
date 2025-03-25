@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
 import { User } from '../3_models/User';
-import { generateAuthToken } from '../4_middlewares/auth';
-import { LoginRequest, RegisterRequest, UserResponse } from '../types/Types';
+import { AuthenticatedRequest, UserResponse } from '../types/auth.types';
 
 export class UserController {
-  static async getUsers(req: Request, res: Response) {
+  static async getUsers(req: AuthenticatedRequest, res: Response) {
     try {
       const users = await User.getUsers(50);
       if (!users?.length) {
@@ -17,24 +16,16 @@ export class UserController {
     }
   }
 
-  static async login(req: Request<{}, {}, LoginRequest>, res: Response) {
-    const { login, password } = req.body;
-
+  static async getUserById(req: AuthenticatedRequest, res: Response) {
     try {
-      const user = await User.getUserByLogin(login);
+      const user = await User.getUserById(req.params.id);
       if (!user) {
-        return res.status(401).json({ message: "Invalid login credentials" });
+        return res.status(404).json({ message: "User not found" });
       }
 
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ message: "Invalid login credentials" });
-      }
-
-      const token = generateAuthToken(user.id);
       const userResponse: UserResponse = {
-        userLogin: user.login,
         userID: user.id,
+        userLogin: user.login,
         name: user.name,
         surname: user.surname,
         email: user.email,
@@ -42,78 +33,31 @@ export class UserController {
         configuration: user.config
       };
 
-      res.json({ 
-        message: "Login successful", 
-        token, 
-        user: userResponse 
-      });
-    } catch (error) {
-      console.error("Error during login:", error);
-      res.status(500).json({ message: "Error logging in" });
-    }
-  }
-
-  static async register(req: Request<{}, {}, RegisterRequest>, res: Response) {
-    const {
-      name,
-      email,
-      password,
-      surname = "",
-      country = "",
-      login,
-      birthDate = new Date()
-    } = req.body;
-
-    try {
-      const userConfig = { 
-        base_language: "en", 
-        learning_languages: [] 
-      };
-
-      const userData = {
-        name,
-        surname,
-        login,
-        password,
-        email,
-        country,
-        birth_date: birthDate,
-        config: userConfig,
-        subscribedDictionaries: []
-      };
-
-      const createdUser = await User.createUser(userData);
-
-      res.status(201).json({
-        message: `User created successfully with ID: ${createdUser.id}`,
-        userId: createdUser.id
-      });
-    } catch (error) {
-      console.error("Error creating user:", error);
-      res.status(500).json({ message: "Error creating user" });
-    }
-  }
-
-  static async getUserById(req: Request, res: Response) {
-    try {
-      const user = await User.getUserById(req.params.id);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      res.json(user);
+      res.json(userResponse);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Error fetching user" });
     }
   }
 
-  static async getAuthenticatedUser(req: Request, res: Response) {
+  static async getAuthenticatedUser(req: AuthenticatedRequest, res: Response) {
     try {
-      const user = await User.getUserById(req.user!.id);
+      const user = await User.getUserById(req.user.id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json(user);
+
+      const userResponse: UserResponse = {
+        userID: user.id,
+        userLogin: user.login,
+        name: user.name,
+        surname: user.surname,
+        email: user.email,
+        country: user.country,
+        configuration: user.config
+      };
+
+      res.json(userResponse);
     } catch (error) {
       console.error("Error fetching authenticated user:", error);
       res.status(500).json({ message: "Error fetching user data" });

@@ -2,6 +2,17 @@ import Dictionary from '../3_models/Dictionary';
 import { Word, CheckedDictionary } from '../types/Types';
 
 export class DictionaryController {
+  private static async verifyDictionaryOwnership(dictionaryId: string, userId: string): Promise<Dictionary> {
+    const dictionary = await Dictionary.findByPk(dictionaryId);
+    if (!dictionary) {
+      throw new Error(`Dictionary with id ${dictionaryId} not found`);
+    }
+    if (dictionary.owner !== userId) {
+      throw new Error('Unauthorized: You do not own this dictionary');
+    }
+    return dictionary;
+  }
+
   static async getUserDictionariesWithExistingWordCheck(
     userId: string,
     word: string
@@ -9,11 +20,16 @@ export class DictionaryController {
     try {
       const dictionaries = await Dictionary.getDictionaries(userId);
       
+      console.log(dictionaries[0].words);
+      console.log(dictionaries[1].words);
       return dictionaries.map(dictionary => ({
         dictionaryName: dictionary.name,
         dictionaryId: dictionary.id,
         exists: dictionary.words?.some(
-          dictWord => dictWord.word.toLowerCase().trim() === word.toLowerCase().trim()
+          dictWord => {
+            console.log('Inside some callback - word:', word, typeof word);
+            return dictWord.word.toLowerCase().trim() === word.toLowerCase().trim();
+          }
         ) || false
       }));
     } catch (error) {
@@ -37,55 +53,41 @@ export class DictionaryController {
     return Dictionary.getDictionaries(userId);
   }
 
-  static async getDictionaryById(dictionaryId: string) {
-    const dictionary = await Dictionary.findByPk(dictionaryId);
-    if (!dictionary) {
-      throw new Error(`Dictionary with id ${dictionaryId} not found`);
-    }
+  static async getDictionaryById(dictionaryId: string, userId: string) {
+    const dictionary = await this.verifyDictionaryOwnership(dictionaryId, userId);
     return dictionary;
   }
 
   static async deleteDictionary(dictionaryId: string, userId: string) {
-    const dictionary = await Dictionary.findByPk(dictionaryId);
-    if (!dictionary) {
-      throw new Error(`Dictionary with id ${dictionaryId} not found`);
-    }
-    if (dictionary.owner !== userId) {
-      throw new Error('Unauthorized to delete this dictionary');
-    }
+    const dictionary = await this.verifyDictionaryOwnership(dictionaryId, userId);
     await dictionary.destroy();
   }
 
   static async addWordToDictionary(
     dictionaryId: string,
-    wordData: Word
+    wordData: Word,
+    userId: string
   ): Promise<void> {
-    const dictionary = await Dictionary.findByPk(dictionaryId);
-    if (!dictionary) {
-      throw new Error(`Dictionary with id ${dictionaryId} not found`);
-    }
+    const dictionary = await this.verifyDictionaryOwnership(dictionaryId, userId);
     await dictionary.addWord(wordData);
   }
 
   static async updateWordInDictionary(
     dictionaryId: string,
-    wordData: Word
+    wordData: Word,
+    userId: string
   ): Promise<void> {
-    const dictionary = await Dictionary.findByPk(dictionaryId);
-    if (!dictionary) {
-      throw new Error(`Dictionary with id ${dictionaryId} not found`);
-    }
+    console.log("Adding word to dictionary");
+    const dictionary = await this.verifyDictionaryOwnership(dictionaryId, userId);
     await dictionary.updateWord(wordData);
   }
 
   static async deleteWordFromDictionary(
     dictionaryId: string,
-    word: string
+    word: string,
+    userId: string
   ): Promise<void> {
-    const dictionary = await Dictionary.findByPk(dictionaryId);
-    if (!dictionary) {
-      throw new Error(`Dictionary with id ${dictionaryId} not found`);
-    }
+    const dictionary = await this.verifyDictionaryOwnership(dictionaryId, userId);
     await dictionary.deleteWord(word);
   }
 }

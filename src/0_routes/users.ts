@@ -1,8 +1,19 @@
-import { Router } from 'express';
+import { Router, RequestHandler, Response } from 'express';
 import { UserController } from '../1_controllers/users';
 import { isAuthenticated } from '../4_middlewares/auth';
-import { validateRequest } from '../4_middlewares/validation';
-import { loginSchema, registerSchema } from '../validation/auth.schema';
+import { AuthenticatedRequest } from '../types/auth.types';
+
+// Helper to type the request handlers
+const handler = <T>(fn: (req: AuthenticatedRequest, res: Response) => Promise<T>): RequestHandler => {
+  return (req, res, next) => fn(req as AuthenticatedRequest, res).catch(next);
+};
+
+// Create a properly typed wrapper for the controller methods
+const wrapController = {
+  getUsers: (req: AuthenticatedRequest, res: Response) => UserController.getUsers(req, res),
+  getAuthenticatedUser: (req: AuthenticatedRequest, res: Response) => UserController.getAuthenticatedUser(req, res),
+  getUserById: (req: AuthenticatedRequest, res: Response) => UserController.getUserById(req, res)
+};
 
 export default function createUserRoutes(useMockService = false): Router {
   const router = Router();
@@ -13,22 +24,17 @@ export default function createUserRoutes(useMockService = false): Router {
       res.json([{ message: "Mock user 1" }, { message: "Mock user 2" }]);
     });
 
-    router.post('/login', (_, res) => {
-      res.json({ message: "Mock login successful" });
-    });
-
-    router.post('/register', (_, res) => {
-      res.json({ message: "Mock user registered successfully" });
+    router.get('/me', (_, res) => {
+      res.json({ message: "Mock user data" });
     });
 
     return router;
   }
 
-  // Real routes with proper middleware
-  router.get('/', isAuthenticated, UserController.getUsers);
-  router.get('/:id', isAuthenticated, UserController.getUserById);
-  router.post('/login', validateRequest(loginSchema), UserController.login);
-  router.post('/register', validateRequest(registerSchema), UserController.register);
+  // User management routes
+  router.get('/', isAuthenticated, handler(wrapController.getUsers));
+  router.get('/me', isAuthenticated, handler(wrapController.getAuthenticatedUser));
+  router.get('/:id', isAuthenticated, handler(wrapController.getUserById));
 
   return router;
 }

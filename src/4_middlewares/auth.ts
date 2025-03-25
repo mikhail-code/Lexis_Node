@@ -1,30 +1,14 @@
 import jwt from 'jsonwebtoken';
-import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import ms from 'ms';
 import { Request, Response, NextFunction } from 'express';
-import Auth from '../3_models/Auth'; // Adjust the import path as necessary
-import { User } from '../3_models/User'; // Adjust the import path as necessary
-
-dotenv.config();
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-// Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        iat?: number;
-        exp?: number;
-      };
-    }
-  }
-}
+import Auth from '../3_models/Auth';
+import { User } from '../3_models/User';
+import { AuthenticatedRequest, AuthenticatedUser } from '../types/auth.types';
+import { authConfig } from '../0_config/auth.config';
 
 export function generateAuthToken(userId: string): string {
-  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '12h' });
+  return jwt.sign({ userId }, authConfig.jwtSecret, { expiresIn: authConfig.jwtExpiresIn });
 }
 
 export async function validateRefreshToken(token: string): Promise<{ userId: string } | null> {
@@ -51,7 +35,7 @@ export async function saveAuthToken(userId: string, token: string): Promise<void
   try {
     const expiresAt = new Date(Date.now() + ms('12h'));
     await Auth.create({
-      id: uuidv4(), // Ensure `id` is included or generated
+      id: uuidv4(),
       userId,
       token,
       expiresAt,
@@ -75,16 +59,21 @@ export const isAuthenticated = async (
 
     // Verify token
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+    const decoded = jwt.verify(token, authConfig.jwtSecret) as { userId: string };
 
     // Get user from database
-    const user = await User.findByPk(decoded.id);
+    const user = await User.findByPk(decoded.userId);
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' });
     }
 
-    // Add user to request object
-    req.user = decoded;
+    // Add user to request object with proper typing
+    (req as AuthenticatedRequest).user = {
+      id: user.id,
+      login: user.login,
+      email: user.email
+    };
+
     next();
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
@@ -94,3 +83,8 @@ export const isAuthenticated = async (
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+// Type guard to check if a request is authenticated
+export function isAuthenticatedRequest(req: Request): req is AuthenticatedRequest {
+  return 'user' in req && req.user !== undefined;
+}
